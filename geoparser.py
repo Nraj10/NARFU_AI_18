@@ -15,11 +15,11 @@ class _Image():
 class SourceImage(_Image):
     epsg: str
     coords: shapely.Polygon
-    __image_file: geotiff.GeoTiff
+    image_file: geotiff.GeoTiff
 
     def __init__(self, image_path: str) -> None:
         self.__read_tokens(image_path)
-        self.__image_file = geotiff.GeoTiff(image_path, crs_code=32637)
+        self.image_file = geotiff.GeoTiff(image_path, crs_code=32637)
 
     def __read_tokens(self, image_path: str):
         """Will get coords of the file in the source dataset. p1. """
