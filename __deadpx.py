@@ -238,7 +238,7 @@ if args.repair:
         driver = gdal.GetDriverByName( format )
         metadata = driver.GetMetadata()
         if  metadata[ gdal.DCAP_CREATE ] == "YES":
-            outRaster = driver.Create( fname+'.repaired', xsize, ysize, 4, gdal.GDT_Int16 )
+            outRaster = driver.Create( fname+'.repaired', xsize, ysize, 4, gdal.GDT_UInt16 )
             outRaster.SetProjection( projection )
             outRaster.SetGeoTransform( transform )
             outRaster.GetRasterBand( 1 ).WriteArray( band_1 )
