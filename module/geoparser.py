@@ -4,18 +4,29 @@ import shapely
 import geotiff
 from osgeo import gdal
 import PIL.Image
+from tifffile import imread as tifread
 
-SIFT = cv2.SIFT_create()
-bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
+from NARFU_AI_18.config import CONFIG
+
+SIFT = cv2.SIFT_create(nfeatures=100000, enable_precise_upscale = True, sigma=1.0)
+
 
 
 class _Image:
     image: np.ndarray
     descriptors: any
     keypoints: any
+    name: str
 
     def __init__(self) -> None:
+        self.name = ''
         pass
+
+    def correct_gamma(self):
+        invGamma = 1.0 / 1.5
+        table = np.array([((i / 255.0) ** invGamma) * 255
+		    for i in np.arange(0, 256)]).astype("uint8")
+        self.image = cv2.LUT(self.image, table)
 
     def process_image(self):
         """Will get image features. p2."""
@@ -33,13 +44,13 @@ class SourceImage(_Image):
 
     def __init__(self, image_path: str) -> None:
         super().__init__()
+        self.name = image_path
         self.__read_tokens(image_path)
         self.image_file = geotiff.GeoTiff(image_path, crs_code=32637)
         self.process_image()
 
     def to_numpy(self):
-        zarr_array = self.image_file.read()
-        return np.array(zarr_array)
+        return tifread(self.name)
 
     def __read_tokens(self, image_path: str):
         """Will get coords of the file in the source dataset. p1."""
@@ -63,38 +74,52 @@ class SourceImage(_Image):
 
     def process_image(self):
         # TODO: add caching to pickle
-        self.image = np.array(self.to_numpy()[:, :, :3] / 1000 * 255, dtype=np.uint8)
+        self.image = np.array(self.to_numpy()[:, :, :3] / CONFIG.layout_clip_max * 255)
         self.image = np.array(
-            PIL.Image.fromarray(self.image).resize(
+            PIL.Image.fromarray(np.array(self.image, dtype=np.uint8)).resize(
                 [self.image.shape[0] // 4, self.image.shape[1] // 4],
                 resample=PIL.Image.BICUBIC,
             )
         )
+        cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
+        # self.correct_gamma()
+        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         return super().process_image()
 
 
 class CropImage(_Image):
-    def __init__(self, image: np.ndarray):
+    def __init__(self, image: np.ndarray, name = ''):
         super().__init__()
 
         self.image = image
+        cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
+        # self.image = image[:,:,3]
+        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         self.process_image()
 
     def match(self, source: SourceImage):
+        bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
         matches = bf.match(self.descriptors, source.descriptors)
         matches = sorted(matches, key=lambda x: x.distance)
-        if len(matches) > 50:
+        if len(matches) > CONFIG.max_matches_to_calc_proj:
             src_pts = np.float32(
-                [self.keypoints[m.queryIdx].pt for m in matches[:50]]
+                [self.keypoints[m.queryIdx].pt for m in matches[:CONFIG.max_matches_to_calc_proj]]
             ).reshape(-1, 1, 2)
             dst_pts = np.float32(
-                [source.keypoints[m.trainIdx].pt for m in matches[:50]]
+                [source.keypoints[m.trainIdx].pt for m in matches[:CONFIG.max_matches_to_calc_proj]]
+            ).reshape(-1, 1, 2) 
+        else:
+            src_pts = np.float32(
+                [self.keypoints[m.queryIdx].pt for m in matches[:]]
             ).reshape(-1, 1, 2)
-        transform, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        return transform, mask
+            dst_pts = np.float32(
+                [source.keypoints[m.trainIdx].pt for m in matches[:]]
+            ).reshape(-1, 1, 2) 
+        transform, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, CONFIG.homografy_confidence)
+        return transform, mask, matches
 
     def get_coords(self, source: SourceImage):
-        M, _ = self.match(source)
+        M = self.match(source)[0]
         left_top_corner = M.dot(np.array([0, 0, 1]))
         right_top_corner = M.dot(np.array([self.image.shape[0], 0, 1]))
         right_bottom_corner = M.dot(
