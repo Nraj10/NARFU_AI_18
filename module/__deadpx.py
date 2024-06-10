@@ -43,7 +43,7 @@ amin, amax = args.minexp, args.maxexp
 mwin=args.median//2
 
 fname = args.fname
-gdalData = gdal.Open(fname)
+gdalData: gdal.Dataset = gdal.Open(fname)
 
 
 #print("Driver short name", gdalData.GetDriver().ShortName)
