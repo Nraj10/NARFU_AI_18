@@ -2,6 +2,8 @@ import os
 import json
 
 class Config():
+    queue_max_size: int
+
     max_matches_to_calc_proj: int
     homografy_confidence: int
 
@@ -14,6 +16,7 @@ class Config():
     
     
     def __init__(self):
+        self.queue_max_size = 100
         self.max_matches_to_calc_proj = 50
         self.homografy_confidence = 5.0
 

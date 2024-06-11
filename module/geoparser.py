@@ -116,12 +116,15 @@ class SourceImage(_Image):
                 resample=PIL.Image.BICUBIC,
             )
         )
-        self.image = self.image[:, :, 2:]
+        # self.image = self.image[:, :, :3]
         # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
         self.correct_gamma()
         self.image_shape = self.image.shape
+        self.image = self.image[:,:,2:]
         # if(self.image.shape[2] > 1):
-        #     self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        self.image = cv2.bilateralFilter(self.image,7,50,20)
+        # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
         return super().process_image()
 
 
@@ -129,14 +132,17 @@ class CropImage(_Image):
     def __init__(self, image: np.ndarray, name=""):
         super().__init__()
 
-        self.image = image[:,:,:3]
+        self.image = image[:,:,3:]
         self.name = name
         self.correct_channels()
         # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
         # self.image = image[:,:,3]
         self.correct_gamma()
         # if(self.image.shape[2] > 1):
-        #     self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        # self.image = cv2.GaussianBlur(self.image,(7,7),0)
+        self.image = cv2.bilateralFilter(self.image,3,50,15)
+        # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
         self.process_image()
 
     def match(self, source: SourceImage):

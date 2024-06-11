@@ -1,24 +1,38 @@
+from dataclasses import dataclass
+from threading import Lock, Thread
 from module.config import CONFIG
+from module.process_queue import ProcessQueue
 from .geoparser import CropImage, SourceImage
 import os
 import numpy as np
 from tifffile import imread as tifread
 import cv2
+import json
+
 
 class Processor():
 
     layouts: list[SourceImage]
     index = 0
+    task_id = 0
+    tasks: dict[int, ]
+    lock: Lock
+    process_queue: ProcessQueue
+
 
     def __init__(self) -> None:
         self.layouts = []
+        self.tasks = dict()
+        self.lock = Lock()
         layouts_path = os.path.join(CONFIG.data_path, CONFIG.layouts_dir_name)
         for layout_name in os.listdir(layouts_path):
             self.layouts.append(SourceImage(os.path.join(layouts_path, layout_name)))
+        self.process_queue = ProcessQueue(self.lock, self.tasks, self.layouts)
 
     def process_from_array(self, crop_img: np.ndarray, name: str):
-        crop = CropImage(crop_img, name)
-        return crop.get_coords(self.layouts[self.index])
+        self.task_id += 1
+        self.process_queue.add_task(crop_img, name, self.task_id)
+        return self.task_id
 
     def process_from_file(self, path: str,):
         return self.process_from_array(tifread(path), os.path.basename(path))
