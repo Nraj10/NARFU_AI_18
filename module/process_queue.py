@@ -16,24 +16,28 @@ class QueueElement():
     crop_name: str
     task_id: int
 
+def _process_task(data: QueueElement, layouts: list[SourceImage]):
+    start_time = date.today().strftime('%Y-%m-%dT%h:%m:%s')
+    result = TaskResult()
+    result.start = start_time
+    result.task_id = data.task_id
+
+    crop = CropImage(data.crop_data, data.crop_name)
+    result.ul, result.ur, result.br, result.bl = crop.get_coords(layouts[0]).tolist()
+    result.crs = f'EPSG:{layouts[0].epsg}'
+    result.crop_name = data.crop_name
+    result.layout_name = layouts[0].name
+    result.fix_info = crop.fix_info
+    result.end = date.today().strftime('%Y-%m-%dT%h:%m:%s')
+    return result
+
 def _process_loop(queue: list[QueueElement], lock: Lock, target_dict: dict[int,TaskResult], layouts: list[SourceImage]):
     while(True):
         if(len(queue)):
-            start_time = date.today().strftime('%Y-%m-%dT%h:%m:%s')
             lock.acquire(True)
             data: QueueElement = queue.pop()
             lock.release()
-            result = TaskResult()
-            result.start = start_time
-            result.task_id = data.task_id
-
-            crop = CropImage(data.crop_data, data.crop_name)
-            result.ul, result.ur, result.br, result.bl = crop.get_coords(layouts[0]).tolist()
-            result.crs = layouts[0].epsg
-            result.crop_name = data.crop_name
-            result.layout_name = layouts[0].name
-            result.end = date.today().strftime('%Y-%m-%dT%h:%m:%s')
-
+            result = _process_task(data, layouts)
             lock.acquire(True)
             target_dict[result.task_id] = result
             lock.release()
@@ -60,3 +64,6 @@ class ProcessQueue():
         self.lock.acquire(True)
         self.queue.append(QueueElement(crop_data, crop_name, task_id))
         self.lock.release()
+
+    def process_without_queue(self, crop_data: np.ndarray, crop_name: str):
+        return _process_task(QueueElement(crop_data, crop_name, -1), self.layouts)

@@ -13,6 +13,11 @@ class Config():
 
     layouts_downscale: int
     layout_clip_max: int
+
+    fix_search_window: int
+    fix_repair_window: int
+    fix_min_exp: float
+    fix_max_exp: float
     
     
     def __init__(self):
@@ -26,6 +31,11 @@ class Config():
 
         self.layouts_downscale = 4
         self.layout_clip_max = 2000
+
+        self.fix_search_window = 5
+        self.fix_repair_window = 5
+        self.fix_min_exp = 15
+        self.fix_max_exp = 200
 
         if(os.path.exists('config.json')):
             with open('config.json', 'r') as  file:

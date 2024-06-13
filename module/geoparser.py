@@ -1,3 +1,4 @@
+import PIL.ImageOps
 import cv2
 import numpy as np
 import shapely
@@ -5,7 +6,7 @@ import geotiff
 from osgeo import gdal
 import PIL.Image
 from tifffile import imread as tifread
-
+from scipy import ndimage
 from module.config import CONFIG
 
 SIFT = cv2.SIFT_create()  # nfeatures=100000, enable_precise_upscale = True, sigma=1.0
@@ -28,7 +29,7 @@ class _Image:
         ).astype("uint8")
         self.image = cv2.LUT(self.image, table)
 
-    def correct_channels(self):
+    def equalize_channels(self):
         mean = np.mean(self.image, dtype=np.float32) + 10 * np.std(
             self.image, dtype=np.float32
         )
@@ -44,7 +45,48 @@ class _Image:
 
     def draw_keypoints(self):
         return cv2.drawKeypoints(self.image, self.keypoints, self.image)
+    
+    def correct_broken_channels(self):
+        win_rows = CONFIG.fix_search_window
+        win_cols = CONFIG.fix_search_window
+        median_window = CONFIG.fix_repair_window
+        amin = CONFIG.fix_min_exp
+        amax = CONFIG.fix_max_exp
+        mwin = median_window // 2
 
+        broken_channels = []
+        broken_pixels = []
+        fixed_pixels = []
+        for i in range(4):
+            channel = self.image[:, :, i]
+            pixels = np.argwhere(
+                (
+                    ndimage.uniform_filter(channel, (win_rows, win_cols)) / 10 * amin / 10
+                    > channel
+                )
+                | (
+                    ndimage.uniform_filter(channel, (win_rows, win_cols)) / 100 * amax
+                    < channel
+                )
+            )
+            broken_channels.append(pixels)
+            channel_broken_pixels = []
+            channel_fixed_pixels = []
+            for pixel in pixels:
+                channel_broken_pixels.append(channel[pixel[0], pixel[1]])
+                val = np.median(channel[pixel[0]-mwin:pixel[0]+mwin,pixel[1]-mwin:pixel[1]+mwin]).astype(int)
+                channel_fixed_pixels.append(val)
+                self.image[pixel[0], pixel[1], i] = val
+            broken_pixels.append(channel_broken_pixels)
+            fixed_pixels.append(channel_fixed_pixels)
+
+        result = ''
+        for ch_i in range(4):
+            i = 0
+            for pixel in broken_channels[ch_i]:
+                result += f"{pixel[0]}; {pixel[1]}; {ch_i}; {int(broken_pixels[ch_i][i])}; {fixed_pixels[ch_i][i]}\n"
+                i += 1
+        return result
 
 class SourceImage(_Image):
     epsg: str
@@ -99,7 +141,7 @@ class SourceImage(_Image):
 
     def process_image(self):
         # TODO: add caching to pickle
-        self.image = np.array(self.to_numpy()[:, :, 1:], dtype=np.float32).clip(0, 6000)
+        self.image = np.array(self.to_numpy()[:, :, :3], dtype=np.float32).clip(0, 6000)
         mean = np.mean(self.image, dtype=np.float32) + 4 * np.std(
             self.image, dtype=np.float32
         )
@@ -107,41 +149,50 @@ class SourceImage(_Image):
         print(mean, self.image.max())
         self.image *= 255
         # self.image.clip(0, 255)
-        self.image = np.array(
-            PIL.Image.fromarray(self.image.astype(np.uint8)).resize(
+        self.image = PIL.Image.fromarray(self.image.astype(np.uint8)).resize(
                 [
                     int(self.image.shape[0] / CONFIG.layouts_downscale),
                     int(self.image.shape[1] / CONFIG.layouts_downscale),
                 ],
                 resample=PIL.Image.BICUBIC,
             )
-        )
+        # self.image = PIL.ImageOps.posterize(self.image, 3)
+        self.image = PIL.ImageOps.grayscale(self.image)
+        self.image = np.array(self.image)
         # self.image = self.image[:, :, :3]
         # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
-        self.correct_gamma()
+        # self.correct_gamma()
         self.image_shape = self.image.shape
-        self.image = self.image[:,:,2:]
         # if(self.image.shape[2] > 1):
         # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        self.image = cv2.bilateralFilter(self.image,7,50,20)
+        # self.image = cv2.bilateralFilter(self.image,3,50,15)
         # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
         return super().process_image()
 
 
 class CropImage(_Image):
+
+    fix_info: str
+
     def __init__(self, image: np.ndarray, name=""):
         super().__init__()
 
-        self.image = image[:,:,3:]
+        self.image = image
+        self.fix_info = self.correct_broken_channels()
+        self.image = self.image[:,:,:3]
         self.name = name
-        self.correct_channels()
+        self.equalize_channels()
         # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
         # self.image = image[:,:,3]
-        self.correct_gamma()
+        # self.correct_gamma()
+        self.image = PIL.Image.fromarray(self.image)
+        # self.image = PIL.ImageOps.posterize(self.image, 3)
+        self.image  = PIL.ImageOps.grayscale(self.image)
+        self.image = np.array(self.image)
         # if(self.image.shape[2] > 1):
         # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         # self.image = cv2.GaussianBlur(self.image,(7,7),0)
-        self.image = cv2.bilateralFilter(self.image,3,50,15)
+        # self.image = cv2.bilateralFilter(self.image,3,50,15)
         # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
         self.process_image()
 
