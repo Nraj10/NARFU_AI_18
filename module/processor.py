@@ -20,13 +20,15 @@ class Processor():
     process_queue: ProcessQueue
 
 
-    def __init__(self) -> None:
+    def __init__(self, files: list[str] = None) -> None:
         self.layouts = []
         self.tasks = dict()
         self.lock = Lock()
-        layouts_path = os.path.join(CONFIG.data_path, CONFIG.layouts_dir_name)
-        for layout_name in os.listdir(layouts_path):
-            self.layouts.append(SourceImage(os.path.join(layouts_path, layout_name)))
+        if(not files):
+            layouts_path = os.path.join(CONFIG.data_path, CONFIG.layouts_dir_name)
+            files = [os.path.join(layouts_path, x) for x in os.listdir(layouts_path)]
+        for layout_name in files:
+            self.layouts.append(SourceImage(layout_name))
         self.process_queue = ProcessQueue(self.lock, self.tasks, self.layouts)
 
     def process_from_array(self, crop_img: np.ndarray, name: str):
@@ -55,4 +57,8 @@ class Processor():
         img2_masked = cv2.bitwise_and(img, mask)
         return cv2.add(img2_masked, crop_transformed)
     
-    
+    def process_via_script(self, path: str):
+        result = self.process_queue.process_without_queue(tifread(path), os.path.basename(path))
+        print(result.get_json())
+        result.get_csv()
+        

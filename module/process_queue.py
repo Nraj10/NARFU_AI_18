@@ -36,6 +36,8 @@ def _process_loop(queue: list[QueueElement], lock: Lock, target_dict: dict[int,T
         if(len(queue)):
             lock.acquire(True)
             data: QueueElement = queue.pop()
+            if(data == 0):
+                break;
             lock.release()
             result = _process_task(data, layouts)
             lock.acquire(True)
@@ -58,12 +60,18 @@ class ProcessQueue():
         self.lock = lock
         self.target_dict = target_dict
         self.thread = Thread(target=_process_loop, args=[self.queue, self.lock, self.target_dict, layouts])
+        self.layouts = layouts
         self.thread.start()
         
     def add_task(self, crop_data: np.ndarray, crop_name: str, task_id: int):
         self.lock.acquire(True)
         self.queue.append(QueueElement(crop_data, crop_name, task_id))
-        self.lock.release()
+        
 
     def process_without_queue(self, crop_data: np.ndarray, crop_name: str):
         return _process_task(QueueElement(crop_data, crop_name, -1), self.layouts)
+    
+    def destroy(self):
+        self.lock.acquire(True)
+        self.queue.append(0)
+        self.lock.release()

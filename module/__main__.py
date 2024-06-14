@@ -1,7 +1,12 @@
 from .processor import Processor
-
+import argparse
 
 if(__name__ == '__main__'):
-    processor = Processor()
-    processor.process_from_file('data/crops/crop_3_3_0000.tif')
-    processor.process_queue.thread.join()
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--crop_name')
+    parser.add_argument('--layout_name')
+    args = parser.parse_args()
+    processor = Processor([args.layout_name])
+    processor.process_via_script(args.crop_name)
+    processor.process_queue.destroy()
+    exit(0)

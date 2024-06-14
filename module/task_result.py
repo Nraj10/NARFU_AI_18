@@ -18,4 +18,10 @@ class TaskResult:
         return json.dumps(self.__dict__, )
     
     def get_csv(self):
-        pd.read_json(self.get_json).to_csv('coords.csv')
+        self.ul = str(self.ul)[1:-1].replace(',', ';')
+        self.ur = str(self.ur)[1:-1].replace(',', ';')
+        self.br = str(self.br)[1:-1].replace(',', ';')
+        self.bl = str(self.bl)[1:-1].replace(',', ';')
+        self.fix_info = self.fix_info.replace('\n', '\t')
+        df = pd.read_json(f'[{self.get_json()}]')
+        df.transpose().to_csv('coords.csv', sep='\t', header=False)
