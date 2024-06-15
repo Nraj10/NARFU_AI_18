@@ -4,7 +4,10 @@ import json
 class Config():
     queue_max_size: int
 
+    cache_layouts: bool
+
     max_matches_to_calc_proj: int
+    max_affine_transform = 0.01
     homografy_confidence: int
 
     data_path: str
@@ -21,6 +24,7 @@ class Config():
     
     
     def __init__(self):
+        self.cache_layouts = True
         self.queue_max_size = 100
         self.max_matches_to_calc_proj = 50
         self.homografy_confidence = 5.0
