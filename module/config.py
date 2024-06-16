@@ -21,6 +21,8 @@ class Config():
     fix_repair_window: int
     fix_min_exp: float
     fix_max_exp: float
+
+    crop_scale: float
     
     
     def __init__(self):
@@ -40,6 +42,8 @@ class Config():
         self.fix_repair_window = 5
         self.fix_min_exp = 15
         self.fix_max_exp = 200
+
+        self.crop_scale = 1
 
         if(os.path.exists('config.json')):
             with open('config.json', 'r') as  file:

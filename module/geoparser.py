@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import shapely
 import geotiff
-from osgeo import gdal
 import PIL.Image
 from tifffile import imread as tifread
 from scipy import ndimage
@@ -169,14 +168,6 @@ class SourceImage(_Image):
 
         self.image = np.array(self.to_numpy()[:, :, :3], dtype=np.float32).clip(0, 6000)
         self.equalize_channels()
-        # mean = np.mean(self.image, dtype=np.float32)
-        # # + 4 * np.std(
-        # #     self.image, dtype=np.float32
-        # # )
-        # self.image = self.image / mean
-        # print(mean, self.image.max())
-        # self.image *= 255
-        # self.image.clip(0, 255)
         self.image = PIL.Image.fromarray(self.image.astype(np.uint8)).resize(
             [
                 int(self.image.shape[0] / CONFIG.layouts_downscale),
@@ -184,17 +175,9 @@ class SourceImage(_Image):
             ],
             resample=PIL.Image.BICUBIC,
         )
-        # self.image = PIL.ImageOps.posterize(self.image, 3)
         self.image = PIL.ImageOps.grayscale(self.image)
         self.image = np.array(self.image)
-        # self.image = self.image[:, :, :3]
-        # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
-        # self.correct_gamma()
         self.image_shape = self.image.shape
-        # if(self.image.shape[2] > 1):
-        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        # self.image = cv2.bilateralFilter(self.image,3,50,15)
-        # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
 
         super().process_image()
 
@@ -222,19 +205,10 @@ class CropImage(_Image):
         self.image = self.image[:, :, :3]
         self.name = name
         self.equalize_channels()
-        # cv2.normalize(self.image, self.image, 0, 240, cv2.NORM_MINMAX)
-        # self.image = image[:,:,3]
-        # self.correct_gamma()
         self.image = PIL.Image.fromarray(self.image)
-        self.image = PIL.ImageOps.scale(self.image, 0.5)
-        # self.image = PIL.ImageOps.posterize(self.image, 3)
+        self.image = PIL.ImageOps.scale(self.image, CONFIG.crop_scale)
         self.image = PIL.ImageOps.grayscale(self.image)
         self.image = np.array(self.image)
-        # if(self.image.shape[2] > 1):
-        # self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        # self.image = cv2.GaussianBlur(self.image,(7,7),0)
-        # self.image = cv2.bilateralFilter(self.image,3,50,15)
-        # self.image = cv2.Canny(self.image, 20, 100, L2gradient=True)
         self.process_image()
 
     def match(self, source: SourceImage):
@@ -282,6 +256,3 @@ class CropImage(_Image):
             ]
         )
 
-
-# test = SourceImage("data/layouts/layout_2021-06-15.tif")
-# print(test.epsg)
