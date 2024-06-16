@@ -6,7 +6,11 @@ if(__name__ == '__main__'):
     parser.add_argument('--crop_name')
     parser.add_argument('--layout_name')
     args = parser.parse_args()
-    processor = Processor([args.layout_name])
-    processor.process_via_script(args.crop_name)
+    if(args.layout_name):
+        processor = Processor([args.layout_name])
+    else:
+        processor = Processor()
+    if(args.crop_name):
+        processor.process_via_script(args.crop_name)
     processor.process_queue.destroy()
     exit(0)
