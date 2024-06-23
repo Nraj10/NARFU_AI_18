@@ -7,7 +7,7 @@ class Config():
     cache_layouts: bool
 
     max_matches_to_calc_proj: int
-    max_affine_transform = 0.01
+    max_affine_transform: int
     homografy_confidence: int
 
     data_path: str
@@ -15,7 +15,6 @@ class Config():
     crops_dir_name: str
 
     layouts_downscale: int
-    layout_clip_max: int
 
     fix_search_window: int
     fix_repair_window: int
@@ -28,7 +27,7 @@ class Config():
     def __init__(self):
         self.cache_layouts = True
         self.queue_max_size = 100
-        self.max_matches_to_calc_proj = 50
+        self.max_matches_to_calc_proj = 150
         self.homografy_confidence = 5.0
 
         self.data_path = 'data'
@@ -36,12 +35,13 @@ class Config():
         self.crops_dir_name = 'crops'
 
         self.layouts_downscale = 4
-        self.layout_clip_max = 2000
 
         self.fix_search_window = 5
         self.fix_repair_window = 5
         self.fix_min_exp = 15
         self.fix_max_exp = 200
+
+        self.max_affine_transform = 0.03
 
         self.crop_scale = 1
 
